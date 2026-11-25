@@ -21,3 +21,5 @@ No build step is required. Optional web fonts fall back to system sans-serif whe
 Choose City, Beach, or Downtown before a round. City mixes colorful homes and trees; Beach adds shells, balls, palms, umbrellas, and huts; Downtown adds dense skyscrapers and traffic. Pick Classic Vortex, Cosmic Purple, Shark Bite, or Green Monster. Mouths are cosmetic and share the same growth rules. Choices are remembered locally. Pause and choose “Choose another map” to finish the current round and select again.
 
 Animated rings, randomized tumbling, and synthesized sound effects need no downloaded assets. Toggle sound in the top right.
+
+City and Downtown shuffle building blocks, parks, parking lots, and fountain plazas each round. Benches, planters, flowers, fountains, and parked cars are swallowable. Pedestrians and drivers flee nearby holes along their sidewalk and street routes, then return to their normal pace when safe. Parked cars stay still until threatened.
