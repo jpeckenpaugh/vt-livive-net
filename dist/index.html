@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#172b2b">
+  <title>Vacuum Town — a little hole, a big appetite</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game" aria-label="Vacuum Town game map"></canvas>
+  <header><a class="brand" href="./"><span class="brand-icon">◉</span> VACUUM TOWN<span class="edition">THE LITTLE CITY WITH A BIG PROBLEM</span></a><div class="audio-controls"><button id="sound" class="sound-button" aria-label="Mute sound effects" aria-pressed="true">♪ On</button><button id="pause" class="icon-button" aria-label="Pause game" hidden>Ⅱ</button></div></header>
+  <div id="hud" hidden><div class="stat"><span>SWALLOWED</span><strong id="score">0</strong></div><div class="clock" id="time">2:00</div><div class="stat right"><span>HOLE SIZE</span><strong id="size">1.0<span>×</span></strong></div><div class="progress"><div id="progress"></div></div></div>
+  <main id="overlay"><section class="card"><div class="eyebrow" id="eyebrow">SMALL HOLE. BIG APPETITE.</div><h1 id="title">Down the<br><em>rabbit hole.</em></h1><p id="description">A quiet little town. A very hungry hole.<br>Swallow the small stuff, grow bigger, eat the city.</p><div class="setup" id="setup"><label>YOUR PLAYGROUND<select id="level"><option value="city">City · leafy neighborhood</option><option value="beach">Beach · sun & sand</option><option value="downtown">Downtown · big city appetite</option></select></label><label>YOUR MOUTH<select id="mouth"><option value="classic">◉ Classic vortex</option><option value="cosmic">✦ Cosmic purple</option><option value="shark">🦈 Shark bite</option><option value="monster">👾 Green monster</option></select></label><div id="level-note">Parks, colorful homes, and a little everyday chaos.</div></div><button id="new-round" class="secondary" hidden>Choose another map</button><button id="start" class="primary">Let's eat <span>◉</span></button><div class="instructions"><span>⌨ <b>WASD / Arrow keys</b></span><span>◎ <b>Mouse / Touch</b></span></div><div id="best" class="best">TWO MINUTES. HOW MUCH CAN YOU SWALLOW?</div></section></main>
+  <footer><span id="hint">A little chaos looks good on you.</span><span>MADE FOR A LITTLE DOWNTIME <span class="spark">✳</span></span></footer>
+  <script src="game.js"></script>
+</body>
+</html>
