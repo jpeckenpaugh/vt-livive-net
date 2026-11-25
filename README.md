@@ -4,15 +4,15 @@ A dependency-free browser game built with HTML, CSS, and Canvas 2D. Swallow smal
 
 ## Run locally
 
-From this directory, run `python3 -m http.server 5173 --directory dist`, then open http://localhost:5173.
+From this directory, run `python3 -m http.server 5173`, then open http://localhost:5173.
 
 Move with WASD, arrow keys, or the mouse. On touchscreens, drag toward the direction you want to move. Press Escape or the pause button to pause. Personal best scores are stored locally in your browser.
 
 ## Files
 
-- `dist/index.html`: game screen and menus
-- `dist/style.css`: responsive layout and visual styling
-- `dist/game.js`: world generation, rendering, controls, growth, and rounds
+- `index.html`: game screen and menus
+- `style.css`: responsive layout and visual styling
+- `game.js`: world generation, rendering, controls, growth, and rounds
 
 No build step is required. Optional web fonts fall back to system sans-serif when offline.
 
