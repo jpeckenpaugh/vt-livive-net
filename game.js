@@ -7,14 +7,56 @@ let hole={x:920,y:960,r:22},camera={x:900,y:900},keys=new Set(),pointer=null;
 let best=0;try{best=Number(localStorage.getItem('vacuum-town-best'))||0}catch{}
 const rand=(a,b)=>a+Math.random()*(b-a);
 const pick=items=>items[Math.floor(Math.random()*items.length)];
-let level='city',mouth='classic';
+let level='city',mouth='classic',roundCoins=0,growthMilestone=1,shopResume=false,trail=[];
 const levelNotes={city:'Leafy parks, parking lots, fountain plazas, and colorful homes.',beach:'Swallow shells, beach balls, umbrellas, palms, and beach huts.',downtown:'Busy blocks, taxis, plazas, and towering glass skyscrapers.'};
 try{const savedLevel=localStorage.getItem('vacuum-town-level'),savedMouth=localStorage.getItem('vacuum-town-mouth');if(savedLevel in levelNotes)level=savedLevel;if(['classic','cosmic','shark','monster'].includes(savedMouth))mouth=savedMouth}catch{}
+if(!Economy.owns(level))level='city';if(!Economy.owns(mouth))mouth='classic';
 $('#level').value=level;$('#mouth').value=mouth;$('#level-note').textContent=levelNotes[level];
-$('#level').addEventListener('change',()=>{level=$('#level').value;$('#level-note').textContent=levelNotes[level];populate();try{localStorage.setItem('vacuum-town-level',level)}catch{}});
-$('#mouth').addEventListener('change',()=>{mouth=$('#mouth').value;try{localStorage.setItem('vacuum-town-mouth',mouth)}catch{}});
+$('#level').addEventListener('change',()=>{if(!Economy.owns($('#level').value)){syncEconomy();return}level=$('#level').value;$('#level-note').textContent=levelNotes[level];populate();try{localStorage.setItem('vacuum-town-level',level)}catch{}});
+$('#mouth').addEventListener('change',()=>{if(!Economy.owns($('#mouth').value)){syncEconomy();return}mouth=$('#mouth').value;try{localStorage.setItem('vacuum-town-mouth',mouth)}catch{}});
 $('#new-round').addEventListener('click',finish);
 
+function syncEconomy(){
+ $('#wallet').textContent=Economy.coins.toLocaleString();$('#shop-wallet').textContent=Economy.coins.toLocaleString();
+ $('#shop-open').setAttribute('aria-label',`Open shop, ${Economy.coins} coins`);
+ for(const selector of ['#level','#mouth','#extra'])for(const option of $(selector).options){
+ if(!option.dataset.label)option.dataset.label=option.textContent;
+ const item=Economy.catalog.find(item=>item.id===option.value),owned=Economy.owns(option.value);
+ option.disabled=!owned;option.textContent=option.dataset.label+(!owned?` · ${item.price} coins 🔒`:'');
+ }
+ $('#level').value=level;$('#mouth').value=mouth;$('#extra').value=Economy.extra;
+ $('#round-coins').textContent=`◈ +${roundCoins} this round`;
+}
+function renderShop(){
+ syncEconomy();$('#shop-items').innerHTML=Economy.catalog.map(item=>{
+ const owned=Economy.owns(item.id),selected=item.kind==='extra'?Economy.extra===item.id:item.kind==='level'?level===item.id:mouth===item.id;
+ const unavailable=owned?(selected||(item.kind==='level'&&(state==='paused'||state==='playing'))):Economy.coins<item.price;
+ const label=owned?(selected?'Selected':item.kind==='level'?'Choose map':'Equip'):`Unlock · ◈ ${item.price}`;
+ return `<article class="shop-item"><span class="item-icon" aria-hidden="true">${item.icon}</span><span class="item-kind">${item.kind==='extra'?'Cosmetic extra':item.kind==='level'?'Map':'Mouth'}</span><h3>${item.name}</h3><p>${item.description}</p><button class="shop-buy" data-item="${item.id}" ${unavailable?'disabled':''} aria-label="${owned?label:'Unlock'} ${item.name}${owned?'':` for ${item.price} coins`}">${label}</button>${!owned&&Economy.coins<item.price?`<small>${item.price-Economy.coins} more coins needed</small>`:''}</article>`;
+ }).join('');
+}
+function selectShopItem(item){
+ if(item.kind==='extra')Economy.equip(item.id);
+ else if(item.kind==='mouth'){mouth=item.id;try{localStorage.setItem('vacuum-town-mouth',mouth)}catch{}}
+ else if(state==='ready'||state==='ended'){level=item.id;$('#level-note').textContent=levelNotes[level];populate();try{localStorage.setItem('vacuum-town-level',level)}catch{}}
+}
+$('#shop-items').addEventListener('click',event=>{
+ const button=event.target.closest('button[data-item]');if(!button)return;
+ const item=Economy.catalog.find(item=>item.id===button.dataset.item);if(!item)return;
+ const owned=Economy.owns(item.id);if(!owned&&!Economy.buy(item.id)){renderShop();$('#shop-message').textContent='Not enough coins yet. Play another round to earn more.';return}
+ selectShopItem(item);unlockAudio();tone(660,880,.13);renderShop();
+ $('#shop-message').textContent=owned?`${item.name} selected.`:`${item.name} unlocked! ${item.kind==='level'&&state==='paused'?'Choose it before your next round.':'Ready to use.'}`;
+});
+$('#extra').addEventListener('change',()=>{Economy.equip($('#extra').value);syncEconomy()});
+$('#shop-open').addEventListener('click',()=>{
+ shopResume=state==='playing';if(shopResume)pause();pointer=null;keys.clear();renderShop();
+ $('#shop-message').textContent=Economy.storageAvailable?'Choose a treat. Everything here is bought with game coins.':'Browser storage is unavailable. Progress will last only for this visit.';
+ $('#shop').showModal();
+});
+$('#shop-close').addEventListener('click',()=>$('#shop').close());
+$('#shop').addEventListener('close',()=>{if(shopResume&&state==='paused')pause();shopResume=false;pointer=null;keys.clear()});
+function awardCoins(amount){roundCoins+=amount;Economy.earn(amount);syncEconomy()}
+syncEconomy();
 let animationTime=0,audioContext,masterGain,lastEatSound=-1,muted=false;
 try{muted=localStorage.getItem('vacuum-town-muted')==='true'}catch{}
 function unlockAudio(){
@@ -203,7 +245,10 @@ function draw(){ctx.clearRect(0,0,width,height);const bg=ctx.createLinearGradien
  }
  }
  objects.filter(o=>!o.sinking).forEach(drawShadow);
- const hp=project(hole.x,hole.y);ellipse(hp.x,hp.y+3,hole.r*1.24+7,hole.r*.68+5,'#203e4933');ellipse(hp.x,hp.y,hole.r*1.24+3,hole.r*.68+3,mouth==='cosmic'?'#d2a5ff':mouth==='shark'?'#8ed5ed':mouth==='monster'?'#aedf6b':'#b7f2cf');ellipse(hp.x,hp.y,hole.r*1.24,hole.r*.68,'#355b62');
+ if(Economy.extra==='goldtrail')for(const mark of trail){const p=project(mark.x,mark.y);ctx.globalAlpha=mark.life*.65;ellipse(p.x,p.y,2+mark.life*2,1+mark.life,'#ffdb76')}ctx.globalAlpha=1;
+ const hp=project(hole.x,hole.y);
+ if(Economy.extra==='amber'){const pulse=1+Math.sin(animationTime*4)*.05;for(let i=3;i>0;i--){ctx.strokeStyle=`rgba(255,188,80,${.22/i})`;ctx.lineWidth=i*3;ctx.beginPath();ctx.ellipse(hp.x,hp.y,(hole.r*1.24+6)*pulse,(hole.r*.68+4)*pulse,0,0,Math.PI*2);ctx.stroke()}}
+ ellipse(hp.x,hp.y+3,hole.r*1.24+7,hole.r*.68+5,'#203e4933');ellipse(hp.x,hp.y,hole.r*1.24+3,hole.r*.68+3,mouth==='cosmic'?'#d2a5ff':mouth==='shark'?'#8ed5ed':mouth==='monster'?'#aedf6b':'#b7f2cf');ellipse(hp.x,hp.y,hole.r*1.24,hole.r*.68,'#355b62');
  const pit=ctx.createLinearGradient(0,hp.y-hole.r*.68,0,hp.y+hole.r*.68);pit.addColorStop(0,'#020f20');pit.addColorStop(1,'#1a3746');ellipse(hp.x,hp.y,hole.r*1.18,hole.r*.6,pit);
  // Nested ellipses continuously collapse toward the dark center.
  ctx.save();ctx.beginPath();ctx.ellipse(hp.x,hp.y,hole.r*1.16,hole.r*.59,0,0,Math.PI*2);ctx.clip();
@@ -253,19 +298,22 @@ function updateResidents(dt){
 }
 function frame(t){const dt=Math.min((t-last)/1000,.04)||0;last=t;if(state==='playing'||state==='ready')animationTime+=dt;
  if(state==='playing'){
- remaining=Math.max(0,remaining-dt);updateResidents(dt);let dx=0,dy=0;if(keys.has('arrowleft')||keys.has('a'))dx--;if(keys.has('arrowright')||keys.has('d'))dx++;if(keys.has('arrowup')||keys.has('w'))dy--;if(keys.has('arrowdown')||keys.has('s'))dy++;
+ remaining=Math.max(0,remaining-dt);updateResidents(dt);
+ trail.forEach(mark=>mark.life-=dt);trail=trail.filter(mark=>mark.life>0);
+ if(Economy.extra==='goldtrail'&&(!trail.length||Math.hypot(hole.x-trail[trail.length-1].x,hole.y-trail[trail.length-1].y)>9))trail.push({x:hole.x+rand(-4,4),y:hole.y+rand(-4,4),life:.75});let dx=0,dy=0;if(keys.has('arrowleft')||keys.has('a'))dx--;if(keys.has('arrowright')||keys.has('d'))dx++;if(keys.has('arrowup')||keys.has('w'))dy--;if(keys.has('arrowdown')||keys.has('s'))dy++;
  if(!dx&&!dy&&pointer){dx=pointer.x-width/2;dy=pointer.y-height/2;if(Math.hypot(dx,dy)<7){dx=0;dy=0}}
  // Convert screen direction back to the ground plane for intuitive controls.
  const screenX=dx,screenY=dy;dx=screenX/(2*ISO_X)+screenY/(2*ISO_Y);dy=-screenX/(2*ISO_X)+screenY/(2*ISO_Y);
  const length=Math.hypot(dx,dy);if(length){const speed=210+hole.r*.45;hole.x=Math.max(hole.r,Math.min(WORLD-hole.r,hole.x+dx/length*speed*dt));hole.y=Math.max(hole.r,Math.min(WORLD-hole.r,hole.y+dy/length*speed*dt))}
- for(const o of objects){if(o.sinking){o.sinking-=dt;if(o.sinking<=0)o.gone=true}else if(o.r<hole.r*.78&&Math.hypot(o.x-hole.x,o.y-hole.y)<hole.r-o.r*.25){o.sinkDuration=rand(.5,.85);o.sinking=o.sinkDuration;o.spin=rand(-2.8,2.8);o.sway=rand(-16,16);o.lift=rand(9,30);o.wobble=rand(5,10);o.tilt=rand(-1.15,1.15);sound('eat',o.r);const points=o.type==='building'?100:o.type==='car'?30:o.type==='fountain'?50:['tree','palm','umbrella','bench','planter'].includes(o.type)?15:5;score+=points;eaten++;hole.r=Math.min(125,Math.sqrt(hole.r*hole.r+o.r*o.r*.23));particles.push({x:o.x,y:o.y-15,points,life:1})}}
+ for(const o of objects){if(o.sinking){o.sinking-=dt;if(o.sinking<=0)o.gone=true}else if(o.r<hole.r*.78&&Math.hypot(o.x-hole.x,o.y-hole.y)<hole.r-o.r*.25){o.sinkDuration=rand(.5,.85);o.sinking=o.sinkDuration;o.spin=rand(-2.8,2.8);o.sway=rand(-16,16);o.lift=rand(9,30);o.wobble=rand(5,10);o.tilt=rand(-1.15,1.15);sound('eat',o.r);const points=o.type==='building'?100:o.type==='car'?30:o.type==='fountain'?50:['tree','palm','umbrella','bench','planter'].includes(o.type)?15:5;score+=points;eaten++;awardCoins(1+Math.floor(points/15));hole.r=Math.min(125,Math.sqrt(hole.r*hole.r+o.r*o.r*.23));const milestone=Math.floor(hole.r/22);if(milestone>growthMilestone){awardCoins((milestone-growthMilestone)*25);growthMilestone=milestone}particles.push({x:o.x,y:o.y-15,points,life:1})}}
  objects=objects.filter(o=>!o.gone);particles.forEach(p=>{p.life-=dt;p.y-=dt*30});particles=particles.filter(p=>p.life>0);updateHUD();if(!remaining||!objects.length)finish();
  }
  const offset=state==='ready'?140:0;const targetX=hole.x-offset,targetY=hole.y+offset;camera.x+=(targetX-camera.x)*Math.min(1,dt*7);camera.y+=(targetY-camera.y)*Math.min(1,dt*7);draw();requestAnimationFrame(frame)}
-function start(){$('#setup').hidden=true;$('#new-round').hidden=true;unlockAudio();sound('start');hole={x:920,y:960,r:22};score=0;eaten=0;remaining=ROUND;populate();state='playing';pointer=null;keys.clear();$('#overlay').hidden=true;$('#hud').hidden=false;$('#pause').hidden=false;$('#pause').textContent='Ⅱ';$('#pause').setAttribute('aria-label','Pause game');document.body.classList.add('playing');$('#hint').textContent='Eat objects smaller than your hole. Keep moving to grow.';updateHUD()}
-function finish(){$('#hud').hidden=true;$('#setup').hidden=false;$('#new-round').hidden=true;state='ended';sound('end');best=Math.max(best,score);try{localStorage.setItem('vacuum-town-best',best)}catch{}$('#overlay').hidden=false;$('#pause').hidden=true;$('#eyebrow').textContent='THAT WAS A TASTY LITTLE TOWN.';$('#title').innerHTML=score.toLocaleString()+' points.<br><em>Still hungry?</em>';$('#description').textContent=`You swallowed ${eaten} objects and grew to ${(hole.r/22).toFixed(1)}× your starting size.`;$('#start').innerHTML='Play again <span>◉</span>';$('#best').textContent='PERSONAL BEST · '+best.toLocaleString()+' POINTS'}
-function pause(){unlockAudio();sound('pause');if(state==='playing'){$('#setup').hidden=true;$('#new-round').hidden=false;state='paused';$('#overlay').hidden=false;$('#eyebrow').textContent='TAKE A BREATHER.';$('#title').innerHTML='A little<br><em>intermission.</em>';$('#description').textContent='Your appetite can wait. The town will still be here.';$('#start').innerHTML='Keep eating <span>◉</span>';$('#pause').textContent='▶';$('#pause').setAttribute('aria-label','Resume game')}else if(state==='paused'){state='playing';$('#new-round').hidden=true;$('#overlay').hidden=true;$('#pause').textContent='Ⅱ';$('#pause').setAttribute('aria-label','Pause game')}}
+function start(){if(!Economy.owns(level)||!Economy.owns(mouth))return;roundCoins=0;growthMilestone=1;trail=[];syncEconomy();$('#setup').hidden=true;$('#new-round').hidden=true;unlockAudio();sound('start');hole={x:920,y:960,r:22};score=0;eaten=0;remaining=ROUND;populate();state='playing';pointer=null;keys.clear();$('#overlay').hidden=true;$('#hud').hidden=false;$('#pause').hidden=false;$('#pause').textContent='Ⅱ';$('#pause').setAttribute('aria-label','Pause game');document.body.classList.add('playing');$('#hint').textContent='Eat objects smaller than your hole. Keep moving to grow.';updateHUD()}
+function finish(){if(state!=='playing'&&state!=='paused')return;const completionBonus=(remaining===0||objects.length===0)&&eaten>0?25:0;if(completionBonus)awardCoins(completionBonus);$('#earnings').textContent=`◈ +${roundCoins} coins earned${completionBonus?' (includes 25 for finishing the round)':''}. Balance: ${Economy.coins}. Visit the shop for your next unlock.`;$('#hud').hidden=true;$('#setup').hidden=false;$('#new-round').hidden=true;state='ended';sound('end');best=Math.max(best,score);try{localStorage.setItem('vacuum-town-best',best)}catch{}$('#overlay').hidden=false;$('#pause').hidden=true;$('#eyebrow').textContent='THAT WAS A TASTY LITTLE TOWN.';$('#title').innerHTML=score.toLocaleString()+' points.<br><em>Still hungry?</em>';$('#description').textContent=`You swallowed ${eaten} objects and grew to ${(hole.r/22).toFixed(1)}× your starting size.`;$('#start').innerHTML='Play again <span>◉</span>';$('#best').textContent='PERSONAL BEST · '+best.toLocaleString()+' POINTS'}
+function pause(){unlockAudio();sound('pause');if(state==='playing'){$('#setup').hidden=true;$('#new-round').hidden=false;state='paused';$('#overlay').hidden=false;$('#eyebrow').textContent='TAKE A BREATHER.';$('#title').innerHTML='A little<br><em>intermission.</em>';$('#description').textContent='Your appetite can wait. The town will still be here.';$('#earnings').textContent=`◈ +${roundCoins} coins earned this round. Already saved to your wallet.`;$('#start').innerHTML='Keep eating <span>◉</span>';$('#pause').textContent='▶';$('#pause').setAttribute('aria-label','Resume game')}else if(state==='paused'){state='playing';$('#new-round').hidden=true;$('#overlay').hidden=true;$('#pause').textContent='Ⅱ';$('#pause').setAttribute('aria-label','Pause game')}}
 $('#start').addEventListener('click',()=>state==='paused'?pause():start());$('#pause').addEventListener('click',pause);
-addEventListener('keydown',e=>{const key=e.key.toLowerCase();if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(key))e.preventDefault();keys.add(key);if(key==='escape')pause()});addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
+addEventListener('keydown',e=>{const key=e.key.toLowerCase();if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(key))e.preventDefault();keys.add(key);if(key==='escape'&&!$('#shop').open)pause()});addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
 canvas.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'||e.buttons)pointer={x:e.clientX,y:e.clientY}});canvas.addEventListener('pointerdown',e=>{pointer={x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId)});canvas.addEventListener('pointerup',e=>{if(e.pointerType!=='mouse')pointer=null});canvas.addEventListener('pointerleave',()=>pointer=null);addEventListener('blur',()=>{keys.clear();pointer=null;if(state==='playing')pause()});
+if(!Economy.storageAvailable)$('#earnings').textContent='Browser storage is unavailable; coins and unlocks last for this visit only.';else $('#earnings').textContent='Earn coins with every object, plus 25 each time you grow a full size. Visit the shop to unlock more.';
 if(best)$('#best').textContent='PERSONAL BEST · '+best.toLocaleString()+' POINTS';populate();requestAnimationFrame(frame);

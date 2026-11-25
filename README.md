@@ -23,3 +23,13 @@ Choose City, Beach, or Downtown before a round. City mixes colorful homes and tr
 Animated rings, randomized tumbling, and synthesized sound effects need no downloaded assets. Toggle sound in the top right.
 
 City and Downtown shuffle building blocks, parks, parking lots, and fountain plazas each round. Benches, planters, flowers, fountains, and parked cars are swallowable. Pedestrians and drivers flee nearby holes along their sidewalk and street routes, then return to their normal pace when safe. Parked cars stay still until threatened.
+
+## Coins and shop
+
+New wallets start with 100 welcome coins. City and Classic Vortex are free. Each swallowed object earns `1 + floor(points / 15)` coins, each full size milestone earns 25, and completing a round earns another 25. Earnings save immediately, even if you leave a round early.
+
+Open the coin button in the header to buy permanent map and mouth unlocks, or Golden Wake and Amber Aura cosmetics. Opening the shop pauses an active round and closing it resumes play. Choose an unlocked extra in the setup menu; use “No extra” to remove it. Locked maps become available for the next round.
+
+Coins, purchases, and equipped extras are stored in this browser on this site. They do not sync between devices or between localhost and the published site. Clearing browser data resets progress. If storage is unavailable, progress lasts only for the current visit. There are no real-money purchases.
+
+Run the economy and reward checks with `node --test tests/economy.test.cjs`. The game still requires no build or dependency installation.
